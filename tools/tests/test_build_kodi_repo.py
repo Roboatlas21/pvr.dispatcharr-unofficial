@@ -202,6 +202,33 @@ def test_kodi_21_line_takes_an_omega_tag_api_8_and_the_armv7_coreelec_build(tmp_
     assert TAG_21 + "/addon-pvr.dispatcharr-unofficial-0.13.0-coreelec-armv7.zip" in paths
 
 
+def test_coreelec_feed_offers_only_the_arm_zip_to_a_generic_linux_kodi(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(_TOOLS))
+    compat = _load("sync_coreelec_repo")
+    repo.build_index(tmp_path / "site", "21", TAG_21, _release_21(tmp_path / "zips"))
+    entries = _entries(tmp_path / "site" / "kodi21")
+    assert not _offered(entries, {"all", "linux"})
+
+    index = repo.addons_xml(entries).encode()
+    selected = compat.coreelec_entry(index, hashlib.sha256(index).hexdigest() + "  addons.xml\n")
+    assert _offered([selected], {"all", "linux"}) == [selected]
+    assert _meta(selected).findtext("path") == TAG_21 + "/addon-pvr.dispatcharr-unofficial-0.13.0-coreelec-armv7.zip"
+    assert selected.get("version") == "0.13.0.1"
+    with pytest.raises(compat.RepoError, match="checksum mismatch"):
+        compat.coreelec_entry(index, "wrong")
+
+    for invalid in ([], [selected, selected]):
+        data = repo.addons_xml(invalid).encode()
+        with pytest.raises(compat.RepoError, match="expected one"):
+            compat.coreelec_entry(data, hashlib.sha256(data).hexdigest())
+
+    pvr_import = selected.find("requires/import[@addon='kodi.binary.instance.pvr']")
+    pvr_import.set("version", "9.2.0")
+    data = repo.addons_xml([selected]).encode()
+    with pytest.raises(compat.RepoError, match="unexpected Kodi API"):
+        compat.coreelec_entry(data, hashlib.sha256(data).hexdigest())
+
+
 def test_a_build_for_the_other_kodi_is_refused(tmp_path):
     zips = _release(tmp_path / "zips", version="0.13.0", pvr_api="9.2.0", coreelec="coreelec-armv7")
     with pytest.raises(repo.RepoError, match="PVR API 9, not Kodi 21"):

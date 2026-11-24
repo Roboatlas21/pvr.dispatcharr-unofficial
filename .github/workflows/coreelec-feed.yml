@@ -1,0 +1,46 @@
+name: Refresh CoreELEC Omega repository
+
+on:
+  push:
+    branches: [Omega, coreelec-omega]
+    paths:
+      - .github/workflows/coreelec-feed.yml
+      - tools/sync_coreelec_repo.py
+      - tools/build_kodi_repo.py
+      - kodi-repository/repository.dispatcharr-coreelec-omega/**
+  workflow_dispatch:
+  schedule:
+    - cron: '27 5 * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: coreelec-omega-feed
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    if: github.repository == 'Roboatlas21/pvr.dispatcharr-unofficial'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build from the published upstream Omega index
+        run: python3 tools/sync_coreelec_repo.py "$RUNNER_TEMP/coreelec-feed"
+      - name: Publish the verified index and installer
+        shell: bash
+        run: |
+          feed_ref=refs/heads/coreelec-omega
+          existing=$(git ls-remote --heads origin "$feed_ref")
+          if [[ -n "$existing" ]]; then
+            git fetch --depth=1 origin "$feed_ref"
+            git checkout --detach FETCH_HEAD
+          fi
+          mkdir -p coreelec-feed
+          cp -R "$RUNNER_TEMP/coreelec-feed/." coreelec-feed/
+          git add -- coreelec-feed
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m "Refresh the CoreELEC Omega repository"
+          fi
+          git push origin "HEAD:$feed_ref"

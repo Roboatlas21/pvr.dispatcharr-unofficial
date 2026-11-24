@@ -1,0 +1,3 @@
+/coreelec-feed/index/*.xml text eol=lf
+/coreelec-feed/index/*.sha256 text eol=lf
+/coreelec-feed/*.zip binary

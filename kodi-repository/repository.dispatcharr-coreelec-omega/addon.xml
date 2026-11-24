@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<addon id="repository.dispatcharr-coreelec-omega" name="Dispatcharr for CoreELEC (Omega ARMv7)" version="1.0.0" provider-name="Roboatlas21">
+  <requires>
+    <import addon="xbmc.addon" version="21.0.0"/>
+    <import addon="repository.coreelec" version="21.0.0"/>
+  </requires>
+  <extension point="xbmc.addon.repository" name="Dispatcharr for CoreELEC (Omega ARMv7)">
+    <dir minversion="21.0.0" maxversion="21.89.0">
+      <info>https://raw.githubusercontent.com/Roboatlas21/pvr.dispatcharr-unofficial/coreelec-omega/coreelec-feed/index/addons.xml</info>
+      <checksum verify="sha256">https://raw.githubusercontent.com/Roboatlas21/pvr.dispatcharr-unofficial/coreelec-omega/coreelec-feed/index/addons.xml.sha256</checksum>
+      <datadir zip="true">https://github.com/BruiserBrody17/pvr.dispatcharr-unofficial/releases/download/</datadir>
+      <artdir>https://bruiserbrody17.github.io/pvr.dispatcharr-unofficial/kodi21/art/</artdir>
+    </dir>
+  </extension>
+  <extension point="xbmc.addon.metadata">
+    <summary lang="en_GB">Unofficial Dispatcharr client releases for 32-bit ARM CoreELEC on Kodi 21</summary>
+    <description lang="en_GB">Install on CoreELEC Omega systems with a 32-bit ARM Kodi userland, including Amlogic-ng.arm.</description>
+    <platform>linux</platform>
+    <license>GPL-2.0-or-later</license>
+  </extension>
+</addon>
