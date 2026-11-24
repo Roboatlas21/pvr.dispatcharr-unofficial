@@ -97,8 +97,8 @@ generic Linux platform. This fork publishes a separate catalog containing the up
 
 1. Download the [CoreELEC repository ZIP](https://raw.githubusercontent.com/Roboatlas21/pvr.dispatcharr-unofficial/coreelec-omega/coreelec-feed/repository.dispatcharr-coreelec-omega-1.0.0.zip) and select it under **Add-ons → Install from zip file**.
 2. Open **Install from repository → Dispatcharr for CoreELEC (Omega ARMv7) → PVR clients → Dispatcharr PVR Client (Unofficial)**.
-   Install the client from this repository once. For an existing ZIP installation, use **Versions** to select this
-   repository and keep the add-on data if prompted. Leave **Auto-update** enabled on the client.
+   Select **Install**. If Kodi asks to replace a copy you installed from ZIP, confirm and keep the add-on data.
+   Leave **Auto-update** enabled on the client.
 
 Kodi downloads the original Omega ARMv7 ZIP from the upstream release. The fork serves the catalog from its
 `coreelec-omega` branch. To keep it current, enable GitHub Actions in the fork and merge the refresh workflow into
