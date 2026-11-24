@@ -196,13 +196,20 @@ def _release_21(directory, **kwargs):
 
 
 def test_kodi_21_line_takes_an_omega_tag_api_8_and_the_armv7_coreelec_build(tmp_path):
-    repo.build_index(tmp_path / "site", "21", TAG_21, _release_21(tmp_path / "zips"))
-    entries = _entries(tmp_path / "site" / "kodi21")
-    paths = {_meta(e).findtext("path") for e in entries}
-    assert TAG_21 + "/addon-pvr.dispatcharr-unofficial-0.13.0-linux.zip" in paths
-    (coreelec,) = _offered(entries, {"all", "linux"})
-    assert _meta(coreelec).findtext("path") == TAG_21 + "/addon-pvr.dispatcharr-unofficial-0.13.0-coreelec-armv7.zip"
-    assert _platforms_of(coreelec) == {"linux-armv7", "linux"}
+    site = tmp_path / "site"
+    repo.build_index(site, "21", TAG_21, _release_21(tmp_path / "zips"))
+    entries = _entries(site / "kodi21")
+    (desktop,) = _offered(entries, KODI_PLATFORMS["linux x86_64"])
+    (armv7,) = _offered(entries, KODI_PLATFORMS["linux armv7 (CoreELEC)"])
+    assert _meta(desktop).findtext("path") == TAG_21 + "/addon-pvr.dispatcharr-unofficial-0.13.0-linux.zip"
+    assert _meta(armv7).findtext("path") == TAG_21 + "/addon-pvr.dispatcharr-unofficial-0.13.0-coreelec-armv7.zip"
+    assert not _offered(entries, {"all", "linux"})
+
+    fallback = _entries(site / "kodi21" / "coreelec-armv7")
+    (compat,) = _offered(fallback, {"all", "linux"})
+    assert fallback == [compat]
+    assert _meta(compat).findtext("path") == _meta(armv7).findtext("path")
+    assert _platforms_of(compat) == {"linux-armv7", "linux"}
 
 
 def test_a_build_for_the_other_kodi_is_refused(tmp_path):
@@ -444,6 +451,31 @@ def test_landing_page_lists_only_the_repository_zip_for_kodi(tmp_path):
     site = tmp_path / "site"
     name = _build_repository(site)
     assert _kodi_directory_items((site / "index.html").read_text()) == [name]
+
+
+def test_coreelec_installer_uses_the_arm_catalog_and_updates_from_its_own_source(tmp_path):
+    site = tmp_path / "site"
+    source = site / "coreelec-armv7"
+    _build_repository(site)
+    repo.build_index(site, "21", TAG_21, _release_21(tmp_path / "zips"))
+    (name,) = _kodi_directory_items((source / "index.html").read_text())
+    (entry,) = _entries(source / "repo")
+    assert _meta(entry).findtext("path") == name
+    assert gate.check_zip(str(source / name), ["example-private-term"]) == []
+    with zipfile.ZipFile(source / name) as z:
+        manifest = ET.fromstring(z.read(entry.attrib["id"] + "/addon.xml"))
+    assert manifest.get("id") != repo.REPOSITORY_ID
+    assert manifest.find("requires/import[@addon='repository.coreelec']") is not None
+    catalog, updates = manifest.findall("extension[@point='xbmc.addon.repository']/dir")
+    assert catalog.attrib == {"minversion": "21.0.0", "maxversion": "21.89.0"}
+    assert catalog.findtext("datadir") == repo.DOWNLOAD_URL
+    assert catalog.findtext("artdir") == repo.SITE_URL + "kodi21/art/"
+    assert updates.findtext("datadir") == repo.SITE_URL + "coreelec-armv7/"
+    for directory, path in ((catalog, "kodi21/coreelec-armv7/addons.xml"), (updates, "coreelec-armv7/repo/addons.xml")):
+        assert directory.findtext("info") == repo.SITE_URL + path
+        assert directory.findtext("checksum") == repo.SITE_URL + path + ".sha256"
+        digest = hashlib.sha256((site / path).read_bytes()).hexdigest()
+        assert (site / (path + ".sha256")).read_text().split()[0] == digest
 
 
 def test_no_index_kodi_reads_sits_in_the_directory_users_browse(tmp_path):

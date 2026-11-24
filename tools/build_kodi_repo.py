@@ -5,6 +5,8 @@
     <site>/repository.dispatcharr-unofficial-<v>.zip the repository addon, installed once by hand
     <site>/repo/addons.xml, addons.xml.sha256        the index of the repository addon itself (it updates itself)
     <site>/kodi21/addons.xml, .sha256, art/          the index of the Kodi 21 (Omega) build of each platform
+    <site>/kodi21/coreelec-armv7/addons.xml, .sha256 the same ARMv7 package for CoreELEC reporting generic Linux
+    <site>/coreelec-armv7/                           file source for the optional ARMv7 repository installer
     <site>/kodi22/addons.xml, .sha256, art/          the same for Kodi 22 (Piers)
 
 The addon zips are not copied: each index entry names its zip under the GitHub release download URL with a <path>, so
@@ -183,8 +185,7 @@ def index_entry(zip_path, tag, kodi):
     check_platform(name, element.text if element is not None else "", platform)
     if element is None:
         element = ET.SubElement(meta, "platform")
-    # Some 32-bit CoreELEC Omega builds only recognize "linux". Desktop Linux also matches that alias.
-    element.text = f"{platform} linux" if suffix == "coreelec-armv7" else platform
+    element.text = platform
     for old in meta.findall("path"):
         meta.remove(old)
     path = ET.Element("path")
@@ -257,6 +258,13 @@ def build_index(site, kodi, tag, zips):
                     except KeyError:
                         raise RepoError("%s declares %s but does not contain it" % (zip_path, asset)) from None
         write_index(build, [entries[p][1] for p in sorted(entries)])
+        if kodi == "21":
+            # Only the opt-in ARM catalog can use the generic Linux label: x86-64 matches it too.
+            arm = entries["linux-armv7"][1]
+            metadata_element(arm).find("platform").text = "linux-armv7 linux"
+            arm_dir = build / "coreelec-armv7"
+            arm_dir.mkdir()
+            write_index(arm_dir, [arm])
         replace_dir(site / KODI_LINES[kodi][0], build)
     except BaseException:
         shutil.rmtree(build, ignore_errors=True)
@@ -334,20 +342,18 @@ README</a>.</p>
 """
 
 
-def build_repository(site, site_url, download_url, stamp):
-    site = Path(site)
-    template = (REPOSITORY_SOURCE / "addon.xml.in").read_text(encoding="utf-8")
-    addon_xml = fill_template(template, site_url, download_url)
+def write_repository(site, addon_xml, stamp):
     root = ET.fromstring(addon_xml.encode("utf-8"))
+    repo_id = root.attrib["id"]
     version = root.get("version")
-    members = {REPOSITORY_ID + "/": b"", REPOSITORY_ID + "/addon.xml": addon_xml.encode("utf-8")}
+    members = {repo_id + "/": b"", repo_id + "/addon.xml": addon_xml.encode("utf-8")}
     for f in sorted(REPOSITORY_SOURCE.rglob("*")):
         rel = f.relative_to(REPOSITORY_SOURCE).as_posix()
         if f.is_file() and rel != "addon.xml.in":
-            members[REPOSITORY_ID + "/" + rel] = f.read_bytes()
-    zip_name = "%s-%s.zip" % (REPOSITORY_ID, version)
+            members[repo_id + "/" + rel] = f.read_bytes()
+    zip_name = "%s-%s.zip" % (repo_id, version)
     site.mkdir(parents=True, exist_ok=True)
-    for old in site.glob(REPOSITORY_ID + "-*.zip"):
+    for old in site.glob(repo_id + "-*.zip"):
         if old.name != zip_name:
             old.unlink()
     deterministic_zip(site / zip_name, members, stamp)
@@ -360,6 +366,30 @@ def build_repository(site, site_url, download_url, stamp):
     (site / "index.html").write_text(INDEX_HTML.format(zip=html.escape(zip_name)), encoding="utf-8")
     (site / ".nojekyll").write_bytes(b"")
     return zip_name
+
+
+def build_repository(site, site_url, download_url, stamp):
+    site = Path(site)
+    template = (REPOSITORY_SOURCE / "addon.xml.in").read_text(encoding="utf-8")
+    standard = fill_template(template, site_url, download_url)
+    # Keep the compatibility repository's self-update URLs inside its own file source.
+    arm = ET.fromstring(fill_template(template, site_url + "coreelec-armv7/", download_url))
+    arm.set("id", REPOSITORY_ID + ".coreelec-armv7")
+    arm.set("name", "Dispatcharr Repository (CoreELEC ARMv7)")
+    ET.SubElement(arm.find("requires"), "import", addon="repository.coreelec", version="21.0.0")
+    extension = arm.find("extension[@point='xbmc.addon.repository']")
+    extension.set("name", arm.get("name"))
+    for directory in extension.findall("dir"):
+        if directory.get("minversion") == "21.0.0":
+            url = site_url + "kodi21/coreelec-armv7/addons.xml"
+            directory.find("info").text = url
+            directory.find("checksum").text = url + ".sha256"
+            directory.find("artdir").text = site_url + "kodi21/art/"
+        elif directory.get("minversion"):
+            extension.remove(directory)
+    metadata_element(arm).find("platform").text = "linux"
+    write_repository(site / "coreelec-armv7", ET.tostring(arm, encoding="unicode"), stamp)
+    return write_repository(site, standard, stamp)
 
 
 def main(argv):
