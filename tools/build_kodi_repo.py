@@ -183,7 +183,8 @@ def index_entry(zip_path, tag, kodi):
     check_platform(name, element.text if element is not None else "", platform)
     if element is None:
         element = ET.SubElement(meta, "platform")
-    element.text = platform
+    # Some 32-bit CoreELEC Omega builds only recognize "linux". Desktop Linux also matches that alias.
+    element.text = f"{platform} linux" if suffix == "coreelec-armv7" else platform
     for old in meta.findall("path"):
         meta.remove(old)
     path = ET.Element("path")

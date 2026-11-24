@@ -197,9 +197,12 @@ def _release_21(directory, **kwargs):
 
 def test_kodi_21_line_takes_an_omega_tag_api_8_and_the_armv7_coreelec_build(tmp_path):
     repo.build_index(tmp_path / "site", "21", TAG_21, _release_21(tmp_path / "zips"))
-    paths = {_meta(e).findtext("path") for e in _entries(tmp_path / "site" / "kodi21")}
+    entries = _entries(tmp_path / "site" / "kodi21")
+    paths = {_meta(e).findtext("path") for e in entries}
     assert TAG_21 + "/addon-pvr.dispatcharr-unofficial-0.13.0-linux.zip" in paths
-    assert TAG_21 + "/addon-pvr.dispatcharr-unofficial-0.13.0-coreelec-armv7.zip" in paths
+    (coreelec,) = _offered(entries, {"all", "linux"})
+    assert _meta(coreelec).findtext("path") == TAG_21 + "/addon-pvr.dispatcharr-unofficial-0.13.0-coreelec-armv7.zip"
+    assert _platforms_of(coreelec) == {"linux-armv7", "linux"}
 
 
 def test_a_build_for_the_other_kodi_is_refused(tmp_path):
