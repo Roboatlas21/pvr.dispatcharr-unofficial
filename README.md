@@ -104,9 +104,9 @@ version and installs new releases automatically.
    Dispatcharr PVR Client (Unofficial) -> Install**.
 5. Enable and configure it (below).
 
-On **32-bit CoreELEC with Kodi 21**, if the PVR client is missing, append `coreelec-armv7/` to the file source URL
-in step 2. Install the repository zip from that source, then open **Dispatcharr Repository (CoreELEC ARMv7) -> PVR clients**.
-It uses the same ARMv7 release zip and picks up future Omega releases.
+On **32-bit CoreELEC with Kodi 21**, open the `coreelec-armv7` folder in the same source at step 3 and select the zip
+inside. In step 4, open **Dispatcharr Repository (CoreELEC ARMv7) -> PVR clients**. Kodi uses that ARM build for
+future Omega updates too.
 
 **Already installed it from a zip?** Kodi does not update an addon installed from a zip from any repository other
 than Kodi's own, so do step 4 once anyway. Kodi warns that the manually installed version will be uninstalled and

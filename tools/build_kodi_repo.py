@@ -6,7 +6,7 @@
     <site>/repo/addons.xml, addons.xml.sha256        the index of the repository addon itself (it updates itself)
     <site>/kodi21/addons.xml, .sha256, art/          the index of the Kodi 21 (Omega) build of each platform
     <site>/kodi21/coreelec-armv7/addons.xml, .sha256 the same ARMv7 package for CoreELEC reporting generic Linux
-    <site>/coreelec-armv7/                           file source for the optional ARMv7 repository installer
+    <site>/coreelec-armv7/                           ARMv7 installer folder in the same Kodi file source
     <site>/kodi22/addons.xml, .sha256, art/          the same for Kodi 22 (Piers)
 
 The addon zips are not copied: each index entry names its zip under the GitHub release download URL with a <path>, so
@@ -335,25 +335,26 @@ Kodi. Install the zip below in Kodi (Add-ons, Install from zip file), then insta
 Instructions: <a href="https://github.com/BruiserBrody17/pvr.dispatcharr-unofficial#installing">the project's
 README</a>.</p>
 <pre>
-<a href="{zip}">{zip}</a>
+{links}
 </pre>
 </body>
 </html>
 """
 
 
-def write_repository(site, addon_xml, stamp):
+def write_repository(site, addon_xml, stamp, *, coreelec=False):
     root = ET.fromstring(addon_xml.encode("utf-8"))
-    repo_id = root.attrib["id"]
     version = root.get("version")
-    members = {repo_id + "/": b"", repo_id + "/addon.xml": addon_xml.encode("utf-8")}
+    members = {REPOSITORY_ID + "/": b"", REPOSITORY_ID + "/addon.xml": addon_xml.encode("utf-8")}
     for f in sorted(REPOSITORY_SOURCE.rglob("*")):
         rel = f.relative_to(REPOSITORY_SOURCE).as_posix()
         if f.is_file() and rel != "addon.xml.in":
-            members[repo_id + "/" + rel] = f.read_bytes()
-    zip_name = "%s-%s.zip" % (repo_id, version)
+            members[REPOSITORY_ID + "/" + rel] = f.read_bytes()
+    # Kodi caches downloaded ZIPs by filename. Keep the two manifests distinct in that cache.
+    zip_prefix = REPOSITORY_ID + ".coreelec-armv7" if coreelec else REPOSITORY_ID
+    zip_name = "%s-%s.zip" % (zip_prefix, version)
     site.mkdir(parents=True, exist_ok=True)
-    for old in site.glob(repo_id + "-*.zip"):
+    for old in site.glob(zip_prefix + "-*.zip"):
         if old.name != zip_name:
             old.unlink()
     deterministic_zip(site / zip_name, members, stamp)
@@ -363,7 +364,9 @@ def write_repository(site, addon_xml, stamp):
     meta.insert(0, path)
     (site / "repo").mkdir(exist_ok=True)
     write_index(site / "repo", [root])
-    (site / "index.html").write_text(INDEX_HTML.format(zip=html.escape(zip_name)), encoding="utf-8")
+    items = [zip_name] if coreelec else [zip_name, "coreelec-armv7/"]
+    links = "\n".join('<a href="{0}">{0}</a>'.format(html.escape(item)) for item in items)
+    (site / "index.html").write_text(INDEX_HTML.format(links=links), encoding="utf-8")
     (site / ".nojekyll").write_bytes(b"")
     return zip_name
 
@@ -372,9 +375,8 @@ def build_repository(site, site_url, download_url, stamp):
     site = Path(site)
     template = (REPOSITORY_SOURCE / "addon.xml.in").read_text(encoding="utf-8")
     standard = fill_template(template, site_url, download_url)
-    # Keep the compatibility repository's self-update URLs inside its own file source.
+    # Both installers use the same repo ID. Each indexes its own installer for future updates.
     arm = ET.fromstring(fill_template(template, site_url + "coreelec-armv7/", download_url))
-    arm.set("id", REPOSITORY_ID + ".coreelec-armv7")
     arm.set("name", "Dispatcharr Repository (CoreELEC ARMv7)")
     ET.SubElement(arm.find("requires"), "import", addon="repository.coreelec", version="21.0.0")
     extension = arm.find("extension[@point='xbmc.addon.repository']")
@@ -388,7 +390,7 @@ def build_repository(site, site_url, download_url, stamp):
         elif directory.get("minversion"):
             extension.remove(directory)
     metadata_element(arm).find("platform").text = "linux"
-    write_repository(site / "coreelec-armv7", ET.tostring(arm, encoding="unicode"), stamp)
+    write_repository(site / "coreelec-armv7", ET.tostring(arm, encoding="unicode"), stamp, coreelec=True)
     return write_repository(site, standard, stamp)
 
 

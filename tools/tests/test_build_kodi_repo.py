@@ -447,10 +447,16 @@ def _kodi_directory_items(page):
     return [link for link, name, _rest in item.findall(page) if link.lstrip("/") == name.strip()]
 
 
-def test_landing_page_lists_only_the_repository_zip_for_kodi(tmp_path):
+def test_both_installers_are_reachable_from_one_kodi_file_source(tmp_path):
     site = tmp_path / "site"
     name = _build_repository(site)
-    assert _kodi_directory_items((site / "index.html").read_text()) == [name]
+    standard, folder = _kodi_directory_items((site / "index.html").read_text())
+    assert standard == name
+    assert (site / standard).is_file()
+    assert folder == "coreelec-armv7/"
+    (arm,) = _kodi_directory_items((site / folder / "index.html").read_text())
+    assert arm != standard
+    assert (site / folder / arm).is_file()
 
 
 def test_coreelec_installer_uses_the_arm_catalog_and_updates_from_its_own_source(tmp_path):
@@ -464,7 +470,7 @@ def test_coreelec_installer_uses_the_arm_catalog_and_updates_from_its_own_source
     assert gate.check_zip(str(source / name), ["example-private-term"]) == []
     with zipfile.ZipFile(source / name) as z:
         manifest = ET.fromstring(z.read(entry.attrib["id"] + "/addon.xml"))
-    assert manifest.get("id") != repo.REPOSITORY_ID
+    assert entry.get("id") == manifest.get("id") == repo.REPOSITORY_ID
     assert manifest.find("requires/import[@addon='repository.coreelec']") is not None
     catalog, updates = manifest.findall("extension[@point='xbmc.addon.repository']/dir")
     assert catalog.attrib == {"minversion": "21.0.0", "maxversion": "21.89.0"}
