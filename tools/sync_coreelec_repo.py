@@ -41,9 +41,10 @@ def coreelec_entry(index, checksum):
         if pvr_api_major(entry) != 8 or not re.fullmatch(package_version, entry.get("version", "")):
             raise RepoError("CoreELEC package has an unexpected Kodi API or package version")
         platform = meta.find("platform")
-        if platform is None or platform.text not in ("linux-armv7", "linux"):
+        labels = (platform.text or "").split() if platform is not None else []
+        if not labels or not set(labels).issubset({"linux-armv7", "linux"}):
             raise RepoError("CoreELEC package has an unexpected platform")
-        platform.text = "linux"
+        platform.text = "linux-armv7 linux"
         matches.append(entry)
     if len(matches) != 1:
         raise RepoError(f"expected one Omega CoreELEC ARMv7 package, found {len(matches)}")

@@ -211,6 +211,7 @@ def test_coreelec_feed_offers_only_the_arm_zip_to_a_generic_linux_kodi(tmp_path,
 
     index = repo.addons_xml(entries).encode()
     selected = compat.coreelec_entry(index, hashlib.sha256(index).hexdigest() + "  addons.xml\n")
+    assert _platforms_of(selected) == {"linux-armv7", "linux"}
     assert _offered([selected], {"all", "linux"}) == [selected]
     assert _meta(selected).findtext("path") == TAG_21 + "/addon-pvr.dispatcharr-unofficial-0.13.0-coreelec-armv7.zip"
     assert selected.get("version") == "0.13.0.1"
